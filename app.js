@@ -1,36 +1,38 @@
+require('dotenv').config();
+require('express-async-errors');
 const express = require('express');
-const mongoose = require('mongoose');
-const dotenv = require('dotenv');
-const projectRoutes = require('./routes/projectRoutes');
+const morgan = require('morgan');
+const cors = require('cors');
 
-// Load environment variables
-dotenv.config();
+const { initializeDB } = require('./models');
+const userRoutes = require('./routes/user.routes');
+const eventRoutes = require('./routes/event.routes');
+const errorHandler = require('./middleware/error.middleware');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017';
 
-// Middleware
+app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(morgan('dev'));
 
-// Routes
-app.use('/api', projectRoutes);
+app.use('/api/v1/users', userRoutes);
+app.use('/api/v1/events', eventRoutes);
 
-// Health check
-app.get('/', (req, res) => {
-  res.send('Project Management API is running');
+app.use('*', (req, res) => {
+    res.status(404).json({
+        status: 'error',
+        message: 'Endpoint not found'
+    });
 });
 
-// Database Connection and Server Start
-mongoose.connect(MONGODB_URI)
-  .then(() => {
-    console.log('Connected to MongoDB');
-    app.listen(PORT, () => {
-      console.log(`Server is running on http://localhost:${PORT}`);
-    });
-  })
-  .catch((err) => {
-    console.error('Failed to connect to MongoDB', err);
-  });
+app.use(errorHandler);
 
-module.exports = app; // For testing
+const PORT = process.env.PORT || 3000;
+initializeDB().then(() => {
+    app.listen(PORT, () => {
+        console.log(`Server is running on port ${PORT}`);
+    });
+});
+
+module.exports = app;
